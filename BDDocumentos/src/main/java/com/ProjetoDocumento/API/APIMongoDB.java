@@ -1,120 +1,107 @@
 package com.ProjetoDocumento.API;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-
+import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.Gson;
 import org.bson.Document;
-import com.mongodb.client.MongoCollection;
-import com.ProjetoDocumento.ConexaoBD.ConexaoMongoDB;
 
 public class APIMongoDB {
 
-    private static final String API_KEY = "AIzaSyB39ayMiyxg4xoUHz4j8Aj2BkxfRlORPbk";  //chave da API
+    private static final String API_KEY = "AIzaSyB39ayMiyxg4xoUHz4j8Aj2BkxfRlORPbk";  // chave da API
     private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes?q=";
     private static final int REQUEST_LIMIT = 10000; // Limite de requisições diárias
     private static int requestCount = 0;
 
-    // Usando a conexão existente com o MongoDB
-    private static final MongoCollection<Document> collection = ConexaoMongoDB.getDatabase().getCollection("livros");
+    // Método principal para buscar livros
+    public static List<Document> buscarLivros(String titulo) {
+        List<Document> livros = new ArrayList<>();
+        // 1. Construir a URL da API
+        String urlString = buildApiUrl(titulo);
+        // 2. Realizar a requisição e obter a resposta
+        String response = makeApiRequest(urlString);
+        livros=processarResposta(response);
+        calcularTempoDeProcessamento();
+        // 3. Extrair e processar os dados da resposta
+        return livros;
 
-    // Método para buscar livros e salvar no banco de dados
-    public static void buscarLivros(String query) {
+    }
+
+    private static String buildApiUrl(String titulo) {
+        StringBuilder urlString = new StringBuilder(GOOGLE_BOOKS_API_URL);
         try {
-            if (requestCount >= REQUEST_LIMIT) {
-                System.out.println("Limite de requisições alcançado. Tente novamente amanhã.");
-                return;
+            if (!titulo.isEmpty()) {
+                urlString.append("intitle:").append(URLEncoder.encode(titulo, "UTF-8"));
             }
-
-            int startIndex = 0;
-            int maxResults = 40; // Número máximo de resultados por página
-            boolean hasMoreResults = true;
-            int totalSavedBooks = 0; // Contador total de livros salvos
-
-            while (hasMoreResults && requestCount < REQUEST_LIMIT) {
-                // Adicionar termos específicos e filtro de idioma à consulta
-                String adjustedQuery = query + "+brasil";
-                String encodedQuery = URLEncoder.encode(adjustedQuery, StandardCharsets.UTF_8.toString());
-                String urlString = GOOGLE_BOOKS_API_URL + encodedQuery + "&langRestrict=pt&startIndex=" + startIndex + "&maxResults=" + maxResults + "&key=" + API_KEY;
-                URL url = new URL(urlString);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-
-                // Verificar o código de resposta da solicitação
-                int responseCode = connection.getResponseCode();
-                requestCount++;
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    InputStreamReader reader = new InputStreamReader(connection.getInputStream());
-                    JsonObject jsonResponse = JsonParser.parseReader(reader).getAsJsonObject();
-                    JsonArray items = jsonResponse.getAsJsonArray("items");
-                    int totalItems = jsonResponse.get("totalItems").getAsInt();
-
-                    if (items != null) {
-                        for (JsonElement item : items) {
-                            try {
-                                JsonObject volumeInfo = item.getAsJsonObject().getAsJsonObject("volumeInfo");
-                                String titulo = volumeInfo.has("title") ? volumeInfo.get("title").getAsString() : "Título desconhecido";
-                                String autorNome = volumeInfo.has("authors") ? volumeInfo.getAsJsonArray("authors").get(0).getAsString() : "Autor desconhecido";
-                                int anoPublicacao = volumeInfo.has("publishedDate") ? Integer.parseInt(volumeInfo.get("publishedDate").getAsString().split("-")[0]) : 0;
-                                String categoria = volumeInfo.has("categories") ? volumeInfo.getAsJsonArray("categories").get(0).getAsString() : "Categoria desconhecida";
-
-                                // MongoDB
-                                Document livroDoc = new Document("titulo", titulo)
-                                        .append("autor", autorNome)
-                                        .append("anoPublicacao", anoPublicacao)
-                                        .append("categoria", categoria);
-                                collection.insertOne(livroDoc);
-                                totalSavedBooks++;
-                            } catch (Exception e) {
-                                System.out.println("Erro ao processar livro: " + e.getMessage());
-                            }
-                        }
-                    } else {
-                        System.out.println("Nenhum livro encontrado.");
-                    }
-
-                    // Verificar se há mais resultados para buscar
-                    startIndex += maxResults;
-                    hasMoreResults = startIndex < totalItems;
-                } else {
-                    // Capturar e exibir a mensagem de erro detalhada
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(connection.getErrorStream()));
-                    StringBuilder errorResponse = new StringBuilder();
-                    String line;
-                    while ((line = errorReader.readLine()) != null) {
-                        errorResponse.append(line);
-                    }
-                    errorReader.close();
-                    System.out.println("Erro na solicitação: " + responseCode);
-                    System.out.println("Mensagem de erro: " + errorResponse.toString());
-                    break;
-                }
-
-                // Calcular o tempo de processamento
-                calcularTempoDeProcessamento();
-            }
-
-            // Exibir mensagem final com total de livros salvos
-            System.out.println("Total de livros salvos no banco de dados: " + totalSavedBooks);
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        return urlString.toString();
+    }
+
+    private static String makeApiRequest(String urlString) {
+        StringBuilder response = new StringBuilder();
+
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            int responseCode = connection.getResponseCode();
+            if (responseCode != 200) {
+                throw new Exception("Erro ao buscar livros: " + responseCode);
+            }
+            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return response.toString();
+    }
+    private static List<Document> processarResposta(String response) {
+        List<Document> livrosEncontrados = new ArrayList<>();
+        Gson gson = new Gson();
+        JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+        JsonArray items = jsonResponse.has("items") ? jsonResponse.getAsJsonArray("items") : null;
+        if (items != null) {
+            for (JsonElement itemElement : items) {
+                JsonObject volumeInfo = itemElement.getAsJsonObject().getAsJsonObject("volumeInfo");
+                if (volumeInfo != null) {
+                    String tituloLivro = volumeInfo.has("title") ? volumeInfo.get("title").getAsString() : "Título não disponível";
+                    String autorLivro = volumeInfo.has("authors") && volumeInfo.getAsJsonArray("authors").size() > 0
+                            ? volumeInfo.getAsJsonArray("authors").get(0).getAsString() : "Autor não disponível";
+                    String anoPublicacao = volumeInfo.has("publishedDate") ? volumeInfo.get("publishedDate").getAsString() : "Data não disponível";
+                    String categoria = volumeInfo.has("categories") && volumeInfo.getAsJsonArray("categories").size() > 0
+                            ? volumeInfo.getAsJsonArray("categories").get(0).getAsString() : "Categoria não disponível";
+
+                    // Cria um documento para o livro encontrado
+                    Document livro = new Document()
+                            .append("titulo", tituloLivro)
+                            .append("autor", autorLivro)
+                            .append("anoPublicacao", anoPublicacao)
+                            .append("categoria", categoria);
+                    livrosEncontrados.add(livro);
+                }
+            }
+        }
+        return livrosEncontrados;
     }
 
     private static void calcularTempoDeProcessamento() {
         long startTime = System.currentTimeMillis();
 
-        // Adicionar um intervalo entre as requisições
         try {
             TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
@@ -125,12 +112,5 @@ public class APIMongoDB {
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;
         System.out.println("Tempo de processamento: " + elapsedTime + " ms");
-    }
-
-    public static void main(String[] args) {
-        buscarLivros("sua consulta aqui"); // Substitua "sua consulta aqui" pela consulta desejada
-
-        // Adicionar mensagem final
-        System.out.println("Busca de livros finalizada. Verifique o banco de dados MongoDB.");
     }
 }

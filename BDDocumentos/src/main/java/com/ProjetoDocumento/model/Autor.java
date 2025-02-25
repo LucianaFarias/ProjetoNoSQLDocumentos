@@ -1,27 +1,33 @@
 package com.ProjetoDocumento.model;
 
 import com.ProjetoDocumento.dto.AutorDTO;
-import org.bson.Document;
 
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "autores")
 public class Autor {
 
-    private int id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+
     private String nome;
-
-    public Autor() {
-
-    }
 
     public Autor(AutorDTO dto) {
         this.id = dto.id();
         this.nome = dto.nome();
     }
 
-    public int getId() {
+    public Autor() {
+
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -31,13 +37,5 @@ public class Autor {
 
     public void setNome(String nome) {
         this.nome = nome;
-    }
-
-    // Método para converter Autor para um Document do MongoDB
-    public Document toDocument() {
-        Document document = new Document();
-        document.append("id", id);
-        document.append("nome", nome);
-        return document;
     }
 }
