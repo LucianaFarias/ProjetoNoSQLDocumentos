@@ -1,14 +1,23 @@
 package com.ProjetoDocumento.model;
 
 import com.ProjetoDocumento.dto.LivroDTO;
-import org.bson.Document;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "livros")
 public class Livro {
 
+    @Id
     private String id;
+
     private String titulo;
+
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "autor_id")
     private Autor autor;
-    private int ano;
+
+    private String ano;  // Ano como String
+
     private String categoria;
 
     public Livro() {
@@ -19,15 +28,15 @@ public class Livro {
         this.titulo = livroDTO.titulo();
         this.autor = new Autor(livroDTO.autor());
         this.ano = livroDTO.anoPublicacao();
-        this.categoria=livroDTO.categoria();
+        this.categoria = livroDTO.categoria();
     }
 
     public String getId() {
         return id;
     }
 
-    public void setId(String isbn) {
-        this.id = isbn;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getTitulo() {
@@ -46,22 +55,12 @@ public class Livro {
         this.autor = autor;
     }
 
-    public int getAnoPublicacao() {
+    public String getAnoPublicacao() {
         return ano;
     }
 
-    public void setAnoPublicacao(int ano) {
+    public void setAnoPublicacao(String ano) {
         this.ano = ano;
-    }
-
-    // Método para converter Livro para um Document do MongoDB
-    public Document toDocument() {
-        Document document = new Document();
-        document.append("id", id);
-        document.append("titulo", titulo);
-        document.append("autor", autor != null ? autor.toDocument() : null);  // Garantindo que o autor seja convertido corretamente
-        document.append("anoPublicacao", ano);
-        return document;
     }
 
     public void setCategoria(String categoria) {

@@ -1,15 +1,23 @@
 package com.ProjetoDocumento.model;
 
 import com.ProjetoDocumento.dto.CriticaDTO;
-
+import jakarta.persistence.*;
+@Entity
+@Table(name = "criticas")
 public class Critica {
 
-    private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+
+    @Column(length = 2000)
     private String conteudo;
+
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "livro_id")
     private Livro livro;
 
     public Critica() {
-
     }
 
     public Critica(CriticaDTO criticaDTO) {
@@ -18,11 +26,11 @@ public class Critica {
         this.livro = new Livro(criticaDTO.livro());
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
