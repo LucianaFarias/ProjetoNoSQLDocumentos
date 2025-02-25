@@ -15,11 +15,9 @@ import com.google.gson.Gson;
 import org.bson.Document;
 
 public class APIMongoDB {
-
-    private static final String API_KEY = "AIzaSyB39ayMiyxg4xoUHz4j8Aj2BkxfRlORPbk";  // chave da API
-    private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes?q=";
-    private static final int REQUEST_LIMIT = 10000; // Limite de requisições diárias
-    private static int requestCount = 0;
+  private static final String API_KEY = "xxxxxxxx";  //chave da API
+  private static final int REQUEST_LIMIT = 10000; // Limite de requisições diárias
+  private static int requestCount = 0;
 
     // Método principal para buscar livros
     public static List<Document> buscarLivros(String titulo) {
